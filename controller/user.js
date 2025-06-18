@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const Redis = require("ioredis");
 const redis = new Redis(process.env.REDIS_HOST);
 const nodemailer = require("nodemailer");
+const hashPasswordWithWorker = require("../utils/hashWithWorker");
 
 const transporter = nodemailer.createTransport({
   service: "Gmail",
@@ -35,8 +36,7 @@ const userregestration = async (req, res) => {
     if (exisitnguser.rows.length > 0) {
       return res.status(400).json({ message: "User already exists" });
     }
-    const hashedPassword = await bcrypt.hash(password, 10);
-
+    const hashedPassword = await hashPasswordWithWorker(password);
     const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
     await redis.set(`otp:${email}`, generatedOtp, "EX", 300);
     await redis.set(
