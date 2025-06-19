@@ -160,10 +160,64 @@ const rejectRequest = async (req, res) => {
   }
 };
 
+const ngoclaimedrequests = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const ngoid = req.user.id;
+    const result = await client.query(
+      `SELECT r.*, d.title, d.description, d.imageurl
+       FROM requests r
+       JOIN donations d ON r.donationid = d.id
+       WHERE r.ngoid = $1 AND r.status = 'approved'`,
+      [ngoid]
+    );
+    res.status(200).json({ claimed_requests: result.rows });
+  } catch (error) {
+    console.error("Error fetching claimed requests:", error.message);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    client.release();
+  }
+};
+
+const cancelrequest = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const requestId = req.params.id;
+    const ngoid = req.user.id;
+
+    const result = await client.query(
+      `UPDATE requests
+       SET status = 'cancelled'
+       WHERE id = $1 AND ngoid = $2 AND status = 'pending'
+       RETURNING *`,
+      [requestId, ngoid]
+    );
+
+    if (result.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "Request not found or not authorized" });
+    }
+
+    res.status(200).json({
+      message: "Request cancelled successfully",
+      request: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Error cancelling request:", error.message);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   createrequestDonation,
   ngototalrequested,
   donarreceviedrequest,
   approveRequest,
   rejectRequest,
+  ngoclaimedrequests,
+  cancelrequest,
 };
