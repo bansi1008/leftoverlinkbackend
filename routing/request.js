@@ -9,6 +9,8 @@ const {
   donarreceviedrequest,
   approveRequest,
   rejectRequest,
+  ngoclaimedrequests,
+  cancelrequest,
 } = require("../controller/requestdonation");
 
 router.post(
@@ -44,6 +46,18 @@ router.patch(
   authenticate,
   authorize("donor"),
   rejectRequest
+);
+router.get(
+  "/ngoclaimedrequests",
+  authenticate,
+  authorize("ngo"),
+  ngoclaimedrequests
+);
+router.patch(
+  "/:id/cancelrequest",
+  authenticate,
+  authorize("ngo"),
+  cancelrequest
 );
 
 module.exports = router;
