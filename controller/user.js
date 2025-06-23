@@ -149,7 +149,16 @@ const loginUser = async (req, res) => {
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
-    res.status(200).json({ message: "Login successful" });
+    res.status(200).json({
+      message: "Login successful",
+      user: {
+        name: user.rows[0].name,
+        email: user.rows[0].email,
+        role: user.rows[0].role,
+        id: user.rows[0].id,
+        profileimageurl: user.rows[0].profileimageurl,
+      },
+    });
   } catch (error) {
     console.error("Error during user login:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -168,19 +177,83 @@ const logout = (req, res) => {
 };
 
 const profileimage = async (req, res) => {
+  const client = await pool.connect();
+
   try {
-    const client = await pool.connect();
     const userId = req.user.id;
-    const imageUrl = req.file.path;
+
+    // Check if file was uploaded
+    if (!req.file) {
+      return res.status(400).json({ message: "No image file provided" });
+    }
+
+    console.log("File uploaded:", req.file);
+
+    // For Cloudinary, use the secure_url instead of path
+    const imageUrl = req.file.path || req.file.secure_url;
+
+    if (!imageUrl) {
+      return res
+        .status(500)
+        .json({ message: "Failed to upload image to Cloudinary" });
+    }
+
     await client.query("UPDATE users SET profileimageurl = $1 WHERE id = $2", [
       imageUrl,
       userId,
     ]);
 
-    res.status(200).json({ message: "Profile image updated", imageUrl });
-    client.release();
+    res.status(200).json({
+      message: "Profile image updated successfully",
+      imageUrl: imageUrl,
+      profileImage: imageUrl, // Also return as profileImage for frontend compatibility
+    });
   } catch (error) {
     console.error("Error updating profile image:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  } finally {
+    client.release();
+  }
+};
+
+const profileupdate = async (req, res) => {
+  const client = await pool.connect();
+  const { adress, contactnumber, bio } = req.body;
+  const userId = req.user.id;
+
+  try {
+    await client.query(
+      "update users set adress=$1,contactnumber=$2,bio=$3 where id=$4",
+      [adress, contactnumber, bio, userId]
+    );
+
+    res.status(200).json({ message: "Profile updated successfully" });
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    client.release();
+  }
+};
+
+const getUserProfile = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const userId = req.user.id;
+    const result = await client.query("SELECT * FROM users WHERE id = $1", [
+      userId,
+    ]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json(result.rows[0]);
+  } catch (error) {
+    console.error("Error fetching user profile:", error.message);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     client.release();
@@ -193,4 +266,6 @@ module.exports = {
   logout,
   verifyOtp,
   profileimage,
+  profileupdate,
+  getUserProfile,
 };
