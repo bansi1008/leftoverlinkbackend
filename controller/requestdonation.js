@@ -64,10 +64,11 @@ const donarreceviedrequest = async (req, res) => {
   try {
     const donarid = req.user.id;
     const result = await client.query(
-      `SELECT r.id AS request_id, r.status, r.ngoid, d.title, d.imageurl, d.description
+      `SELECT r.id AS request_id, r.status, r.ngoid, r.created_at, d.title, d.imageurl, d.description, u.name AS ngoname
        FROM requests r
        JOIN donations d ON r.donationid = d.id
-       WHERE d.user_id = $1`,
+       JOIN users u ON r.ngoid = u.id
+       WHERE d.userid = $1`,
       [donarid]
     );
     res.status(200).json({ total_requested: result.rows });
@@ -90,7 +91,7 @@ const approveRequest = async (req, res) => {
       `UPDATE requests r
        SET status = 'approved'
        FROM donations d
-       WHERE r.donationid = d.id AND d.user_id = $1 AND r.id = $2
+       WHERE r.donationid = d.id AND d.userid = $1 AND r.id = $2
        RETURNING r.*, d.id AS donationid`,
       [donorId, requestId]
     );
@@ -138,7 +139,7 @@ const rejectRequest = async (req, res) => {
       `UPDATE requests r
        SET status = 'rejected'
        FROM donations d
-       WHERE r.donationid = d.id AND d.user_id = $1 AND r.id = $2
+       WHERE r.donationid = d.id AND d.userid = $1 AND r.id = $2
        RETURNING r.*`,
       [donorId, requestId]
     );

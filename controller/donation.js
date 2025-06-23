@@ -14,7 +14,7 @@ const createDonation = async (req, res) => {
     }
 
     const result = await client.query(
-      "INSERT INTO donations (user_id, title,description,category,imageurl,location,quantity,expiry_date) VALUES ($1, $2, $3, $4, $5,$6,$7,$8) RETURNING *",
+      "INSERT INTO donations (userid, title,description,category,imageurl,location,quantity,expiry_date) VALUES ($1, $2, $3, $4, $5,$6,$7,$8) RETURNING *",
       [
         userId,
         title,
@@ -62,7 +62,7 @@ const myDonations = async (req, res) => {
   try {
     const userId = req.user.id;
     const result = await client.query(
-      "SELECT title,description,category,imageUrl,location,quantity,expiry_date FROM donations WHERE user_id = $1",
+      "SELECT id,title,description,category,imageUrl,location,quantity,expiry_date,status FROM donations WHERE userid = $1",
       [userId]
     );
 
@@ -83,7 +83,7 @@ const deleteDonation = async (req, res) => {
     const userId = req.user.id;
 
     const result = await client.query(
-      "DELETE FROM donations WHERE id = $1 AND user_id = $2 RETURNING *",
+      "DELETE FROM donations WHERE id = $1 AND userid = $2 RETURNING *",
       [donationId, userId]
     );
 
@@ -101,26 +101,26 @@ const deleteDonation = async (req, res) => {
 };
 
 const editDonation = async (req, res) => {
+  console.log("Received PATCH body:", req.body);
+
   const client = await pool.connect();
   try {
     const donationId = req.params.id;
     const userId = req.user.id;
     const { title, description, category, location, quantity, expiry_date } =
       req.body;
-
-    if (!title || !category || !location) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
+    const cleanedQuantity = quantity === "" ? null : Number(quantity);
+    const cleanedExpiry = expiry_date === "" ? null : expiry_date;
 
     const result = await client.query(
-      "UPDATE donations SET title = $1, description = $2, category = $3, location = $4, quantity = $5, expiry_date = $6 WHERE id = $7 AND user_id = $8 RETURNING *",
+      "UPDATE donations SET title = $1, description = $2, category = $3, location = $4, quantity = $5, expiry_date = $6 WHERE id = $7 AND userid = $8 RETURNING *",
       [
         title,
         description,
         category,
         location,
-        quantity,
-        expiry_date,
+        cleanedQuantity,
+        cleanedExpiry,
         donationId,
         userId,
       ]
@@ -165,6 +165,47 @@ const getSingleDonation = async (req, res) => {
   }
 };
 
+const state = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const userId = req.user.id;
+    const count = await client.query(
+      "SELECT * FROM donations WHERE userid = $1",
+      [userId]
+    );
+
+    const totalpendingrequests = await client.query(
+      "SELECT COUNT(*) AS totalpendingrequests FROM requests r JOIN donations d ON r.donationid = d.id WHERE d.userid = $1 AND r.status = 'pending'; ",
+      [userId]
+    );
+
+    const totalpendingrequestss = parseInt(
+      totalpendingrequests.rows[0].totalpendingrequests,
+      10
+    );
+
+    const approvedRequests = await client.query(
+      "SELECT COUNT(*) AS approvedrequests FROM requests r JOIN donations d ON r.donationid = d.id WHERE d.userid = $1 AND r.status = 'approved';",
+      [userId]
+    );
+    const approvedRequestsCount = parseInt(
+      approvedRequests.rows[0].approvedrequests,
+      10
+    );
+
+    res.status(200).json({
+      count: count.rows.length,
+      totalpendingrequests: totalpendingrequestss,
+      approvedRequestsCount: approvedRequestsCount,
+    });
+  } catch (error) {
+    console.error("Error fetching donations:", error.message);
+    res.status(500).json({ message: "Internal server error" });
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   createDonation,
   getDonations,
@@ -172,4 +213,5 @@ module.exports = {
   deleteDonation,
   editDonation,
   getSingleDonation,
+  state,
 };

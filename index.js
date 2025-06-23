@@ -9,11 +9,17 @@ const donation = require("./routing/donation");
 const request = require("./routing/request");
 
 const app = express();
+
 app.use(cookieParser());
 const port = process.env.PORT || 5000;
 
-app.use(cors());
 app.use(express.json());
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  })
+);
 app.use("/api/v1", userRoutes);
 app.use("/api/v1/", donation);
 app.use("/api/v1/", request);
