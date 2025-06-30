@@ -46,7 +46,7 @@ const ngototalrequested = async (req, res) => {
     const ngoid = req.user.id;
     //console.log("NGO ID:", ngoid);
     const result = await client.query(
-      `SELECT r.*, d.title, d.description, d.imageurl FROM requests r JOIN donations d ON r.donationid = d.id WHERE r.ngoid = $1 AND  r.status = 'pending'`,
+      `SELECT r.*, d.title, d.description,d.category,d.location,d.quantity, d.imageurl,u.name as donorName,u.profileimageurl FROM requests r JOIN donations d ON r.donationid = d.id JOIN users u on u.id=d.userid  WHERE r.ngoid = $1 AND  r.status IN ('approved', 'pending')`,
       [ngoid]
     );
 
