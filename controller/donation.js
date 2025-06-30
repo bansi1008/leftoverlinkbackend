@@ -6,8 +6,10 @@ const createDonation = async (req, res) => {
   try {
     const userId = req.user.id;
     const imageUrl = req.file?.path;
+
     const { title, description, category, location, quantity, expiry_date } =
       req.body;
+    const expiryDate = expiry_date?.trim() ? expiry_date : null;
 
     if (!title || !category || !location) {
       return res.status(400).json({ message: "Missing required fields" });
@@ -23,7 +25,7 @@ const createDonation = async (req, res) => {
         imageUrl,
         location,
         quantity,
-        expiry_date,
+        expiryDate,
       ]
     );
 
@@ -44,7 +46,7 @@ const getDonations = async (req, res) => {
   const client = await pool.connect();
   try {
     const result = await client.query(
-      "SELECT id, title,description,category,imageUrl,location,quantity,expiry_date FROM donations"
+      `SELECT d.id, d.title, d.description,d.category,d.imageUrl,d.location,d.quantity,d.expiry_date, u.name,u.bio,u.adress, u.profileimageurl FROM donations as d join users as u on d.userid=u.id where d.status ='available' `
     );
 
     const donations = result.rows;
